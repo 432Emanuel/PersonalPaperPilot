@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Paper Pilot - Dokumentenverarbeitung</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f8f7ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #f0eeff;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #555;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 13px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .result-container {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+            display: none;
+        }
+
+        .result-container.show {
+            display: block;
+        }
+
+        .result-item {
+            margin-bottom: 15px;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .result-value {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            background: #667eea;
+            color: white;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .data-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .data-list li {
+            background: #f5f5f5;
+            padding: 6px 12px;
+            margin: 4px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .data-list li:empty {
+            display: none;
+        }
+
+        .empty-hint {
+            color: #999;
+            font-style: italic;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✈️ Personal Paper Pilot</h1>
+        <p class="subtitle">Dokumentenverarbeitung mit OCR & KI-Klassifizierung</p>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">Klicken oder Datei hierher ziehen</div>
+            <div class="upload-hint">Unterstützte Formate: JPG, PNG, PDF</div>
+        </div>
+
+        <input type="file" id="fileInput" accept="image/*">
+
+        <div class="loading" id="loading">
+            Verarbeite Dokument...
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result-container" id="resultContainer">
+            <div class="result-item">
+                <div class="result-label">Kategorie</div>
+                <div class="result-value">
+                    <span class="category-badge" id="categoryBadge"></span>
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Gefundene Beträge</div>
+                <div class="result-value">
+                    <ul class="data-list" id="amountsList"></ul>
+                    <div class="empty-hint" id="amountsHint" style="display:none">Keine Beträge gefunden</div>
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Gefundene Daten</div>
+                <div class="result-value">
+                    <ul class="data-list" id="datesList"></ul>
+                    <div class="empty-hint" id="datesHint" style="display:none">Keine Daten gefunden</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const resultContainer = document.getElementById('resultContainer');
+        const categoryBadge = document.getElementById('categoryBadge');
+        const amountsList = document.getElementById('amountsList');
+        const datesList = document.getElementById('datesList');
+        const amountsHint = document.getElementById('amountsHint');
+        const datesHint = document.getElementById('datesHint');
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        async function handleFile(file) {
+            // Reset UI
+            error.classList.remove('show');
+            resultContainer.classList.remove('show');
+            loading.classList.add('show');
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Upload fehlgeschlagen');
+                }
+
+                const data = await response.json();
+                displayResult(data);
+
+            } catch (err) {
+                error.textContent = 'Fehler: ' + err.message;
+                error.classList.add('show');
+            } finally {
+                loading.classList.remove('show');
+                fileInput.value = '';
+            }
+        }
+
+        function displayResult(data) {
+            // Display category
+            categoryBadge.textContent = data.category;
+
+            // Display amounts
+            amountsList.innerHTML = '';
+            if (data.amounts && data.amounts.length > 0) {
+                data.amounts.forEach(amount => {
+                    const li = document.createElement('li');
+                    li.textContent = amount + ' €';
+                    amountsList.appendChild(li);
+                });
+                amountsHint.style.display = 'none';
+            } else {
+                amountsHint.style.display = 'block';
+            }
+
+            // Display dates
+            datesList.innerHTML = '';
+            if (data.dates && data.dates.length > 0) {
+                data.dates.forEach(date => {
+                    const li = document.createElement('li');
+                    li.textContent = date;
+                    datesList.appendChild(li);
+                });
+                datesHint.style.display = 'none';
+            } else {
+                datesHint.style.display = 'block';
+            }
+
+            resultContainer.classList.add('show');
+        }
+    </script>
+</body>
+</html>

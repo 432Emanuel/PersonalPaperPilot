@@ -1,0 +1,17 @@
+.DS_Store
+
+# Python cache and virtualenvs
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime data and local files
+data/uploads/
+data/documents/
+data/*.db
+backend/data/
+
+# Environment variables
+.env
+.env.*
